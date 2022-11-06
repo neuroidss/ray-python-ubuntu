@@ -1,0 +1,69 @@
+version: "3.9"  # optional since v1.27.0
+services:
+    ray_head:
+        image: $DOCKER_IMAGE
+        networks: [ray_local]
+        command: bash -c "ray start --head --port=6379 --object-manager-port=8076 --dashboard-host 0.0.0.0 --num-cpus 4 && sleep 10000"
+        ports:
+            - 6379:6379
+            - 8265:8265
+            - 10002:10001
+#         volumes:
+#             - /home/ubuntu/coding/ray:/ray
+#             - /home/ubuntu/coding/xgboost_ray:/xgboost_ray
+#             - /home/ubuntu/coding/xgboost_ray/xgboost_ray:/home/ray/anaconda3/lib/python3.7/site-packages/xgboost_ray:ro
+#             - /home/ubuntu/coding/modin/modin:/home/ray/anaconda3/lib/python3.7/site-packages/modin:ro
+        deploy:
+            resources:
+                limits:
+                    cpus: '8'
+                    memory: 2500M
+                reservations:
+                    memory: 2500M
+        shm_size: 1200m
+
+    ray_worker_1:
+        image: $DOCKER_IMAGE
+        networks: [ray_local]
+        depends_on:
+            - ray_head
+        command: bash -c "sleep 1 && ray start --address=ray_head:6379 --object-manager-port=8076 --num-cpus 4 && sleep 10000"
+#         volumes:
+ #            - /home/ubuntu/coding/ray:/ray:ro
+ #            - /home/ubuntu/coding/xgboost_ray/xgboost_ray:/home/ray/anaconda3/lib/python3.7/site-packages/xgboost_ray:ro
+ #            - /home/ubuntu/coding/modin/modin:/home/ray/anaconda3/lib/python3.7/site-packages/modin:ro
+        mem_limit: 3000m
+        mem_reservation: 3000m
+        shm_size: 1200m
+
+    ray_worker_2:
+        image: $DOCKER_IMAGE
+        networks: [ray_local]
+        depends_on:
+            - ray_head
+        command: bash -c "sleep 1 && ray start --address=ray_head:6379 --object-manager-port=8076 --num-cpus 4 && sleep 10000"
+#         volumes:
+#             - /home/ubuntu/coding/ray:/ray:ro
+#             - /home/ubuntu/coding/xgboost_ray/xgboost_ray:/home/ray/anaconda3/lib/python3.7/site-packages/xgboost_ray:ro
+#             - /home/ubuntu/coding/modin/modin:/home/ray/anaconda3/lib/python3.7/site-packages/modin:ro
+        mem_limit: 3000m
+        mem_reservation: 3000m
+        shm_size: 1200m
+
+    ray_worker_3:
+        image: $DOCKER_IMAGE
+        networks: [ray_local]
+        depends_on:
+            - ray_head
+        command: bash -c "sleep 1 && ray start --address=ray_head:6379 --object-manager-port=8076 --num-cpus 4 && sleep 10000"
+#         volumes:
+#             - /home/ubuntu/coding/ray:/ray:ro
+#             - /home/ubuntu/coding/xgboost_ray/xgboost_ray:/home/ray/anaconda3/lib/python3.7/site-packages/xgboost_ray:ro
+#             - /home/ubuntu/coding/modin/modin:/home/ray/anaconda3/lib/python3.7/site-packages/modin:ro
+        mem_limit: 3000m
+        mem_reservation: 3000m
+        shm_size: 1200m
+
+
+networks:
+    ray_local:
