@@ -1,0 +1,102 @@
+FROM ubuntu:22.04
+COPY ./qemu-x86_64-static /usr/bin/
+
+USER 0
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt update
+
+# required by pyarrow
+RUN apt install -y wget
+#RUN wget https://dist.apache.org/repos/dist/dev/arrow/KEYS 
+#RUN apt-key add < KEYS
+#RUN DISTRO=$(lsb_release --codename --short)
+#RUN add-apt-repository "deb [arch=arm64] http://dl.bintray.com/apache/arrow/ubuntu $DISTRO main"
+
+RUN apt install -y -V ca-certificates lsb-release wget
+RUN wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+RUN apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+
+RUN apt install -y software-properties-common
+RUN add-apt-repository -y ppa:deadsnakes/ppa
+RUN apt install -y python3.9
+
+#RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
+#RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 2
+#RUN update-alternatives  --set python /usr/bin/python3.9
+#RUN update-alternatives  --set python3 /usr/bin/python3.9
+
+RUN wget https://bootstrap.pypa.io/get-pip.py
+RUN apt install -y python3.9-distutils
+RUN python3.9 get-pip.py
+
+#RUN update-alternatives  --set pip /usr/bin/pip3.9
+#RUN update-alternatives  --set pip3 /usr/bin/pip3.9
+
+#RUN apt update
+
+#RUN apt install -y python3-pip build-essential curl unzip psmisc
+#RUN apt install -y python3-pip build-essential curl unzip psmisc liblapack-dev libblas-dev llvm libarrow-dev libarrow-python-dev libhdf5-dev
+
+RUN apt install -y aptitude
+RUN aptitude install -y libarrow-dev libarrow-python-dev
+
+RUN apt install -y build-essential curl unzip psmisc liblapack-dev libblas-dev llvm libhdf5-dev
+#RUN apt install -y build-essential curl unzip psmisc liblapack-dev libblas-dev llvm libarrow-dev libarrow-python-dev libhdf5-dev
+RUN pip3.9 install cython pytest
+#RUN pip3.9 install cython pytest torch torchvision
+RUN apt install -y git
+RUN git clone https://github.com/ray-project/ray.git
+
+# Install bazel, 4.0 has bug with protobuf so use 3.7
+#RUN wget https://github.com/bazelbuild/bazel/releases/download/3.7.0/bazel-3.7.0-linux-amd64
+#RUN chmod +x ./bazel-3.7.0-linux-amd64
+# Make sure bazel works
+#RUN ./bazel-3.7.0-linux-arm64
+# Move it as ray python build expects it here
+#RUN mkdir -p ~/.bazel/bin
+#RUN mv bazel-3.7.0-linux-arm64 ~/.bazel/bin/bazel
+
+RUN wget https://github.com/bazelbuild/bazel/releases/download/5.3.2/bazel-5.3.2-linux-x86_64
+RUN chmod +x ./bazel-5.3.2-linux-x86_64
+# Make sure bazel works
+RUN ./bazel-5.3.2-linux-x86_64
+# Move it as ray python build expects it here
+RUN mkdir -p ~/.bazel/bin
+RUN mv bazel-5.3.2-linux-x86_64 ~/.bazel/bin/bazel
+# dm-tree needs this in path
+RUN ln -s ~/.bazel/bin/bazel /usr/local/bin/bazel
+
+# ray ui
+RUN apt install -y npm
+RUN bash -xc "\
+pushd ray/dashboard/client; \
+npm install; \
+npm run build; \
+popd; \
+"
+# rllib
+# Wheel builds successfully, can stop here if wheel is all you want
+RUN apt install -y python3.9-dev
+RUN ln -s /usr/bin/python3.9 /usr/bin/python
+RUN bash -xc "\
+cd ray/python; \
+python setup.py bdist_wheel; \
+"
+# Now let's install the wheel (and deps) to our current machine
+# Tensorflow and opencv will fail due to some dumb issues. No problem
+# since torch works fine. Seems like building tf from source on arm64 is supported and no big deal
+# https://collaborate.linaro.org/display/BDTS/Building+and+Installing+Tensorflow+on+AArch64
+# We'll install a newer opencv version which works fine
+RUN cd ray/python \
+ && pip3.9 install dist/ray-3.0.0.dev0-cp39-cp39-linux_x86_64.whl
+RUN apt install -y cmake
+RUN cd ray \
+ && cat python/requirements.txt | grep -v opencv | grep -v tensorflow | grep -v bazel | grep -v scikit-learn | grep -v reclaim | pip3.9 install --ignore-installed -r /dev/stdin
+#RUN cd ray \
+# && cat python/requirements.txt python/requirements_rllib.txt | grep -v opencv | grep -v tensorflow | grep -v bazel | grep -v scikit-learn | grep -v reclaim  pip3.9 install -r /dev/stdin
+RUN pip3.9 install opencv-python-headless scikit-learn lz4
+
+## switch back to default user
+USER 1000

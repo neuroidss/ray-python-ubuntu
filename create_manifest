@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+USER=neuroidss
+NAME=ray-python-ubuntu
+
+docker manifest create \
+  $USER/$NAME:22.04 \
+  $USER/$NAME:amd64-22.04 \
+  $USER/$NAME:arm64-22.04 --amend
+docker manifest annotate $USER/$NAME:22.04  $USER/$NAME:amd64-22.04 --os linux --arch amd64
+docker manifest annotate $USER/$NAME:22.04  $USER/$NAME:arm64-22.04 --os linux --arch arm64
+#docker manifest annotate $USER/$NAME:20.04  $USER/$NAME:arm-20.04 --os linux --arch arm
+#docker manifest annotate $USER/$NAME:20.04  $USER/$NAME:riscv64-20.04 --os linux --arch riscv64
+docker manifest push --purge $USER/$NAME:22.04
